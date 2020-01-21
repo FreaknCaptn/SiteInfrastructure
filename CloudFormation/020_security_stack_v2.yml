@@ -1,0 +1,395 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Security Stack
+
+Resources:
+
+#########################  ACLs  ############################### 
+################################################################  Public Subnet ACLs
+    PublicACL:
+        Type: AWS::EC2::NetworkAcl
+        Properties:
+            Tags:
+                - Key: Name                
+                  Value: ACL-Public
+            VpcId: !ImportValue VpcId
+
+    PublicACLEntry10:
+        Type: AWS::EC2::NetworkAclEntry
+        Properties: 
+            CidrBlock: 10.72.0.0/16
+            Egress: 'false'
+            NetworkAclId: !Ref PublicACL
+            Protocol: -1
+            RuleAction : allow
+            RuleNumber : 10
+
+    PublicACLEntry20:
+        Type: AWS::EC2::NetworkAclEntry
+        Properties: 
+            CidrBlock: !ImportValue InternalSubnet1CIDR
+            Egress: 'false'
+            NetworkAclId: !Ref PublicACL
+            Protocol: -1
+            RuleAction : allow
+            RuleNumber : 20
+
+    PublicACLEntry30:
+        Type: AWS::EC2::NetworkAclEntry
+        Properties: 
+            CidrBlock: !ImportValue InternalSubnet2CIDR
+            Egress: 'false'
+            NetworkAclId: !Ref PublicACL
+            Protocol: -1
+            RuleAction : allow
+            RuleNumber : 30
+
+    PublicACLEntry100:
+        Type: AWS::EC2::NetworkAclEntry
+        Properties: 
+            CidrBlock: 0.0.0.0/0
+            Egress: 'false'
+            NetworkAclId: !Ref PublicACL
+            Protocol: 6
+            RuleAction : allow
+            RuleNumber : 100
+            PortRange:
+                From: '80'
+                To: '80'
+
+    PublicACLEntry110:
+        Type: AWS::EC2::NetworkAclEntry
+        Properties: 
+            CidrBlock: 0.0.0.0/0
+            Egress: 'false'
+            NetworkAclId: !Ref PublicACL
+            Protocol: 6
+            RuleAction : allow
+            RuleNumber : 110
+            PortRange:
+                From: '443'
+                To: '443'      
+
+    PublicACLEntry200:
+        Type: AWS::EC2::NetworkAclEntry
+        Properties: 
+            CidrBlock: 0.0.0.0/0
+            Egress: 'false'
+            NetworkAclId: !Ref PublicACL
+            Protocol: 6
+            RuleAction : allow
+            RuleNumber : 200
+            PortRange:
+                From: '1024'
+                To: '65535'
+
+    PublicACLEntry210:
+        Type: AWS::EC2::NetworkAclEntry
+        Properties: 
+            CidrBlock: 0.0.0.0/0
+            Egress: 'false'
+            NetworkAclId: !Ref PublicACL
+            Protocol: 17
+            RuleAction : allow
+            RuleNumber : 210
+            PortRange:
+                From: '123'
+                To: '123'
+
+    PublicACLEntry215:
+        Type: AWS::EC2::NetworkAclEntry
+        Properties: 
+            CidrBlock: 0.0.0.0/0
+            Egress: 'false'
+            NetworkAclId: !Ref PublicACL
+            Protocol: 17
+            RuleAction : allow
+            RuleNumber : 215
+            PortRange:
+                From: '1024'
+                To: '65535'
+
+    PublicACLEntryEgress100:
+        Type: AWS::EC2::NetworkAclEntry
+        Properties: 
+            CidrBlock: 0.0.0.0/0
+            Egress: 'true'
+            NetworkAclId: !Ref PublicACL
+            Protocol: -1
+            RuleAction : allow
+            RuleNumber : 100
+                
+    PublicACLAssociation1:
+        Type: AWS::EC2::SubnetNetworkAclAssociation
+        Properties:
+            SubnetId: !ImportValue PublicSubnet1Id
+            NetworkAclId: !Ref PublicACL
+
+    PublicACLAssociation2:
+        Type: AWS::EC2::SubnetNetworkAclAssociation
+        Properties:
+            SubnetId: !ImportValue PublicSubnet2Id
+            NetworkAclId: !Ref PublicACL
+
+################################################################  Internal Subnet ACLs
+    InternalACL:
+        Type: AWS::EC2::NetworkAcl
+        Properties:
+            Tags:
+                - Key: Name                
+                  Value: ACL-Internal
+            VpcId: !ImportValue VpcId
+
+    InternalACLEntry10:
+        Type: AWS::EC2::NetworkAclEntry
+        Properties: 
+            CidrBlock: 10.72.0.0/16
+            Egress: 'false'
+            NetworkAclId: !Ref InternalACL
+            Protocol: -1
+            RuleAction : allow
+            RuleNumber : 10
+
+    InternalACLEntry50:
+        Type: AWS::EC2::NetworkAclEntry
+        Properties: 
+            CidrBlock:  !ImportValue VpcCIDR
+            Egress: 'false'
+            NetworkAclId: !Ref InternalACL
+            Protocol: -1
+            RuleAction : allow
+            RuleNumber : 50
+
+    InternalACLEntry200:
+        Type: AWS::EC2::NetworkAclEntry
+        Properties: 
+            CidrBlock: 0.0.0.0/0
+            Egress: 'false'
+            NetworkAclId: !Ref InternalACL
+            Protocol: 6
+            RuleAction : allow
+            RuleNumber : 200
+            PortRange:
+                From: '1024'
+                To: '65535'
+
+    InternalACLEntry210:
+        Type: AWS::EC2::NetworkAclEntry
+        Properties: 
+            CidrBlock: 0.0.0.0/0
+            Egress: 'false'
+            NetworkAclId: !Ref InternalACL
+            Protocol: 17
+            RuleAction : allow
+            RuleNumber : 210
+            PortRange:
+                From: '123'
+                To: '123'
+
+    InternalACLEntry215:
+        Type: AWS::EC2::NetworkAclEntry
+        Properties: 
+            CidrBlock: 0.0.0.0/0
+            Egress: 'false'
+            NetworkAclId: !Ref InternalACL
+            Protocol: 17
+            RuleAction : allow
+            RuleNumber : 215
+            PortRange:
+                From: '1024'
+                To: '65535'
+
+    InternalACLEntryEgress100:
+        Type: AWS::EC2::NetworkAclEntry
+        Properties: 
+            CidrBlock: 0.0.0.0/0
+            Egress: 'true'
+            NetworkAclId: !Ref InternalACL
+            Protocol: -1
+            RuleAction : allow
+            RuleNumber : 100
+                
+    InternalACLAssociation1:
+        Type: AWS::EC2::SubnetNetworkAclAssociation
+        Properties:
+            SubnetId: !ImportValue InternalSubnet1Id
+            NetworkAclId: !Ref InternalACL
+
+    InternalACLAssociation2:
+        Type: AWS::EC2::SubnetNetworkAclAssociation
+        Properties:
+            SubnetId: !ImportValue InternalSubnet2Id
+            NetworkAclId: !Ref InternalACL
+
+################################################################ Security Subnet ACLs
+    SecureACL:
+        Type: AWS::EC2::NetworkAcl
+        Properties:
+            Tags:
+                - Key: Name                
+                  Value: ACL-Secure
+            VpcId: !ImportValue VpcId
+
+    SecureACLEntry10:
+        Type: AWS::EC2::NetworkAclEntry
+        Properties: 
+            CidrBlock: 10.72.0.0/16
+            Egress: 'false'
+            NetworkAclId: !Ref SecureACL
+            Protocol: -1
+            RuleAction : allow
+            RuleNumber : 10
+
+    SecureACLEntry50:
+        Type: AWS::EC2::NetworkAclEntry
+        Properties: 
+            CidrBlock: !ImportValue InternalSubnet1CIDR
+            Egress: 'false'
+            NetworkAclId: !Ref SecureACL
+            Protocol: -1
+            RuleAction : allow
+            RuleNumber : 50
+
+    SecureACLEntry60:
+        Type: AWS::EC2::NetworkAclEntry
+        Properties: 
+            CidrBlock: !ImportValue InternalSubnet2CIDR
+            Egress: 'false'
+            NetworkAclId: !Ref SecureACL
+            Protocol: -1
+            RuleAction : allow
+            RuleNumber : 60
+
+    SecureACLEntry200:
+        Type: AWS::EC2::NetworkAclEntry
+        Properties: 
+            CidrBlock: 0.0.0.0/0
+            Egress: 'false'
+            NetworkAclId: !Ref SecureACL
+            Protocol: 6
+            RuleAction : allow
+            RuleNumber : 200
+            PortRange:
+                From: '1024'
+                To: '65535'
+
+    SecureACLEntry210:
+        Type: AWS::EC2::NetworkAclEntry
+        Properties: 
+            CidrBlock: 0.0.0.0/0
+            Egress: 'false'
+            NetworkAclId: !Ref SecureACL
+            Protocol: 17
+            RuleAction : allow
+            RuleNumber : 210
+            PortRange:
+                From: '123'
+                To: '123'
+
+    SecureACLEntry215:
+        Type: AWS::EC2::NetworkAclEntry
+        Properties: 
+            CidrBlock: 0.0.0.0/0
+            Egress: 'false'
+            NetworkAclId: !Ref SecureACL
+            Protocol: 17
+            RuleAction : allow
+            RuleNumber : 215
+            PortRange:
+                From: '1024'
+                To: '65535'
+
+    SecureACLEntryEgress100:
+        Type: AWS::EC2::NetworkAclEntry
+        Properties: 
+            CidrBlock: 0.0.0.0/0
+            Egress: 'true'
+            NetworkAclId: !Ref SecureACL
+            Protocol: -1
+            RuleAction : allow
+            RuleNumber : 100
+                
+    SecureACLAssociation1:
+        Type: AWS::EC2::SubnetNetworkAclAssociation
+        Properties:
+            SubnetId: !ImportValue SecureSubnet1Id
+            NetworkAclId: !Ref SecureACL
+
+    SecureACLAssociation2:
+        Type: AWS::EC2::SubnetNetworkAclAssociation
+        Properties:
+            SubnetId: !ImportValue SecureSubnet2Id
+            NetworkAclId: !Ref SecureACL
+
+#####################  Security Groups  ########################
+
+################################################################ SgRDSSecure  NOT USED???
+    SgRDSSecure:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+            GroupDescription: SG-RDS-Secure
+            VpcId: !ImportValue VpcId
+            Tags:
+                -   Key: Name
+                    Value: SG-RDS-Secure
+
+    SGAuroraSecureIngress2:
+        Type: AWS::EC2::SecurityGroupIngress
+        Properties:
+            GroupId: !Ref SgRDSSecure
+            IpProtocol: "-1"
+            CidrIp: 10.72.0.0/16
+            Description: Hunter HQ
+
+    SGAuroraSecureEgress1:
+        Type: AWS::EC2::SecurityGroupEgress
+        Properties:
+            GroupId: !Ref SgRDSSecure
+            IpProtocol: "-1"
+            CidrIp: 0.0.0.0/0
+
+################################################################ SGLambda
+    SGLambda:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+            GroupDescription: SG-Lambda
+            VpcId: !ImportValue VpcId
+            Tags:
+                -   Key: Name
+                    Value: SG-Lambda
+
+    SGLambdaEgress1:
+        Type: AWS::EC2::SecurityGroupEgress
+        Properties:
+            GroupId: !Ref SGLambda
+            IpProtocol: "-1"
+            CidrIp: 0.0.0.0/0
+            
+    SGLambdaIngress:
+        Type: AWS::EC2::SecurityGroupIngress
+        Properties:
+            GroupId: !Ref SGLambda
+            IpProtocol: "tcp"
+            SourceSecurityGroupId: !Ref SgRDSSecure
+            FromPort: 3306
+            ToPort: 3306
+
+################################################################ Assign SGLambda to SgRDSSecure  
+    SgRDSSecureIngress:
+        Type: AWS::EC2::SecurityGroupIngress
+        Properties:
+            GroupId: !Ref SgRDSSecure
+            IpProtocol: "tcp"
+            SourceSecurityGroupId: !Ref SGLambda
+            FromPort: 3306
+            ToPort: 3306
+
+Outputs:
+    SgRDSSecure:
+        Value: !Ref SgRDSSecure
+        Export:
+          Name: SgRDSSecureID
+
+    SGLambda:
+        Value: !Ref SGLambda
+        Export:
+          Name: SGLambdaID

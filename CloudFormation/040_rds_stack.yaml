@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: RDS Stack
+
+Parameters:
+  01DatabaseUsername: 
+    Type: String
+    AllowedPattern: ".{8,41}"
+    Description: Database username
+
+  02DatabasePassword:
+    Type: String
+    AllowedPattern: ".{8,41}"
+    Description: Database password
+ 
+Resources:
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupName: DBSubnetGroupName
+      DBSubnetGroupDescription: DBSubnetGroup 
+      SubnetIds:
+        - !ImportValue PublicSubnet1Id
+        - !ImportValue PublicSubnet2Id
+
+  SiteDB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VPCSecurityGroups:
+        - !ImportValue SgRDSSecureID
+      AllocatedStorage: '20'
+      DBInstanceClass: db.t2.micro
+      Engine: MySQL
+      MasterUsername: !Ref 01DatabaseUsername
+      MasterUserPassword: !Ref 02DatabasePassword
+      PubliclyAccessible : true
+    DeletionPolicy: Snapshot
+
+Outputs:
+  DBMasterUsername:
+    Value: !Ref 01DatabaseUsername
+    Export:
+        Name: DBMasterUsername
+
+  DBMasterPassword:
+    Value: !Ref 02DatabasePassword
+    Export:
+        Name: DBMasterPassword
+
+  DBHost:
+    Value: !GetAtt SiteDB.Endpoint.Address
+    Export:
+        Name: DBHost

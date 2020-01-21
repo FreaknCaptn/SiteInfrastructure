@@ -1,0 +1,443 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: VPC Stack
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "Select environment to be provisioned."
+        Parameters:
+          - EnvironmentType
+      -
+        Label:
+          default: "Enter environment name that will be prefixed to resource names."
+        Parameters:
+          - EnvironmentName
+
+Parameters:
+
+  EnvironmentType:
+    Type: String
+    Default: DEV
+    AllowedValues:
+      - DEV
+      - ALPHA
+      - PROD
+    Description: "Please select environment to be provisioned: DEV 10.240.0.0/16, Alpha 10.241.0.0/16, Stage 10.242.0.0/16, Prod 10.243.0.0/16, Eng 10.244.0.0/16"
+
+  EnvironmentName:
+    Description: An environment name that will be prefixed to resource names
+    Type: String   
+    Default:  Dev
+    
+Mappings:
+  EnvironmentCIDR:
+    DEV:
+      "VpcCIDR" : "10.253.0.0/16"
+      "PublicSubnet1CIDR" : "10.253.4.0/24"
+      "PublicSubnet2CIDR" : "10.253.8.0/24"
+      "WebSubnet1CIDR" : "10.253.64.0/24"
+      "WebSubnet2CIDR" : "10.253.72.0/24"
+      "InternalSubnet1CIDR" : "10.253.16.0/24"
+      "InternalSubnet2CIDR" : "10.253.24.0/24"
+      "SecureSubnet1CIDR" : "10.253.32.0/24"
+      "SecureSubnet2CIDR" : "10.253.40.0/24"
+    ALPHA:
+      "VpcCIDR" : "10.254.0.0/16"
+      "PublicSubnet1CIDR" : "10.254.4.0/24"
+      "PublicSubnet2CIDR" : "10.254.8.0/24"
+      "WebSubnet1CIDR" : "10.254.64.0/24"
+      "WebSubnet2CIDR" : "10.254.72.0/24"
+      "InternalSubnet1CIDR" : "10.254.16.0/24"
+      "InternalSubnet2CIDR" : "10.254.24.0/24"
+      "SecureSubnet1CIDR" : "10.254.32.0/24"
+      "SecureSubnet2CIDR" : "10.254.40.0/24"
+    PROD:
+      "VpcCIDR" : "10.xxx.0.0/16"
+      "PublicSubnet1CIDR" : "10.xxx.4.0/24"
+      "PublicSubnet2CIDR" : "10.xxx.8.0/24"
+      "WebSubnet1CIDR" : "10.xxx.64.0/24"
+      "WebSubnet2CIDR" : "10.xxx.72.0/24"
+      "InternalSubnet1CIDR" : "10.xxx.16.0/24"
+      "InternalSubnet2CIDR" : "10.xxx.24.0/24"
+      "SecureSubnet1CIDR" : "10.xxx.32.0/24"
+      "SecureSubnet2CIDR" : "10.xxx.40.0/24"
+
+  AZRegions:
+    ap-northeast-1:
+       AZs: ["a", "b"]
+    ap-northeast-2:
+       AZs: ["a", "b"]
+    ap-south-1:
+       AZs: ["a", "b"]
+    ap-southeast-1:
+       AZs: ["a", "b"]
+    ap-southeast-2:
+       AZs: ["a", "b"]
+    ca-central-1:
+       AZs: ["a", "b"]
+    eu-central-1:
+       AZs: ["a", "b"]
+    eu-west-1:
+       AZs: ["a", "b"]
+    eu-west-2:
+       AZs: ["a", "b"]
+    sa-east-1:
+       AZs: ["a", "b"]
+    us-east-1:
+       AZs: ["a", "b"]
+    us-east-2:
+       AZs: ["a", "b"]
+    us-west-1:
+       AZs: ["a", "b"]
+    us-west-2:
+       AZs: ["a", "b"]
+        
+Resources:
+
+    VPC: 
+        Type: AWS::EC2::VPC
+        Properties:
+            CidrBlock: !FindInMap [EnvironmentCIDR, !Ref EnvironmentType, VpcCIDR]
+            EnableDnsSupport: true
+            EnableDnsHostnames: true
+            InstanceTenancy: default
+            Tags: 
+                - Key: Name 
+                  Value: !Ref EnvironmentName
+
+################################################################  Internet Gateway
+    InternetGateway:
+        Type: AWS::EC2::InternetGateway
+        Properties:
+            Tags:
+                - Key: Name
+                  Value: !Sub IGW-${EnvironmentName}
+
+    InternetGatewayAttachment:
+        Type: AWS::EC2::VPCGatewayAttachment
+        Properties:
+            InternetGatewayId: !Ref InternetGateway
+            VpcId: !Ref VPC
+
+################################################################  NatGateway
+    NatGateway1EIP:
+        Type: AWS::EC2::EIP
+        DependsOn: InternetGatewayAttachment
+        Properties:
+            Domain: vpc
+
+    NatGateway2EIP:
+        Type: AWS::EC2::EIP
+        DependsOn: InternetGatewayAttachment
+        Properties:
+            Domain: vpc
+
+    NatGateway1: 
+        Type: AWS::EC2::NatGateway
+        Properties: 
+            AllocationId: !GetAtt NatGateway1EIP.AllocationId
+            SubnetId: !Ref PublicSubnet1
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName}-NAT01
+
+    NatGateway2: 
+        Type: AWS::EC2::NatGateway
+        Properties:
+            AllocationId: !GetAtt NatGateway2EIP.AllocationId
+            SubnetId: !Ref PublicSubnet2
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName}-NAT02
+
+################################################################  Subnets
+################################################################  PublicSubnet1
+    PublicSubnet1:
+        Type: AWS::EC2::Subnet
+        Properties:
+            VpcId: !Ref VPC
+            AvailabilityZone:
+              Fn::Sub:
+                - "${AWS::Region}${AZ}"
+                - AZ: !Select [ 0, !FindInMap [ "AZRegions", !Ref "AWS::Region", "AZs" ] ]
+            CidrBlock: !FindInMap [EnvironmentCIDR, !Ref EnvironmentType, PublicSubnet1CIDR]
+            MapPublicIpOnLaunch: true
+            Tags: 
+                - Key: Name 
+                  Value: !Sub ${EnvironmentName} Public (AZ1)
+
+################################################################  PublicSubnet2                  
+    PublicSubnet2: 
+        Type: AWS::EC2::Subnet
+        Properties:
+            VpcId: !Ref VPC
+            AvailabilityZone:
+              Fn::Sub:
+                - "${AWS::Region}${AZ}"
+                - AZ: !Select [ 1, !FindInMap [ "AZRegions", !Ref "AWS::Region", "AZs" ] ]
+            CidrBlock: !FindInMap [EnvironmentCIDR, !Ref EnvironmentType, PublicSubnet2CIDR]
+            MapPublicIpOnLaunch: true
+            Tags: 
+                - Key: Name 
+                  Value: !Sub ${EnvironmentName} Public (AZ2)
+
+################################################################  InternalSubnet1
+    InternalSubnet1: 
+        Type: AWS::EC2::Subnet
+        Properties:
+            VpcId: !Ref VPC
+            AvailabilityZone:
+              Fn::Sub:
+                - "${AWS::Region}${AZ}"
+                - AZ: !Select [ 0, !FindInMap [ "AZRegions", !Ref "AWS::Region", "AZs" ] ]
+            CidrBlock: !FindInMap [EnvironmentCIDR, !Ref EnvironmentType, InternalSubnet1CIDR]
+            MapPublicIpOnLaunch: false
+            Tags: 
+                - Key: Name 
+                  Value: !Sub ${EnvironmentName} Internal (AZ1)
+
+################################################################  InternalSubnet2
+    InternalSubnet2: 
+        Type: AWS::EC2::Subnet
+        Properties:
+            VpcId: !Ref VPC
+            AvailabilityZone:
+              Fn::Sub:
+                - "${AWS::Region}${AZ}"
+                - AZ: !Select [ 1, !FindInMap [ "AZRegions", !Ref "AWS::Region", "AZs" ] ]
+            CidrBlock: !FindInMap [EnvironmentCIDR, !Ref EnvironmentType, InternalSubnet2CIDR]
+            MapPublicIpOnLaunch: false
+            Tags: 
+                - Key: Name 
+                  Value: !Sub ${EnvironmentName} Internal (AZ2)
+
+################################################################  WebSubnet1
+    WebSubnet1: 
+        Type: AWS::EC2::Subnet
+        Properties:
+            VpcId: !Ref VPC
+            AvailabilityZone:
+              Fn::Sub:
+                - "${AWS::Region}${AZ}"
+                - AZ: !Select [ 0, !FindInMap [ "AZRegions", !Ref "AWS::Region", "AZs" ] ]
+            CidrBlock: !FindInMap [EnvironmentCIDR, !Ref EnvironmentType, WebSubnet1CIDR]
+            MapPublicIpOnLaunch: false
+            Tags: 
+                - Key: Name 
+                  Value: !Sub ${EnvironmentName} Web (AZ1)
+
+################################################################  WebSubnet2
+    WebSubnet2: 
+        Type: AWS::EC2::Subnet
+        Properties:
+            VpcId: !Ref VPC
+            AvailabilityZone:
+              Fn::Sub:
+                - "${AWS::Region}${AZ}"
+                - AZ: !Select [ 1, !FindInMap [ "AZRegions", !Ref "AWS::Region", "AZs" ] ]
+            CidrBlock: !FindInMap [EnvironmentCIDR, !Ref EnvironmentType, WebSubnet2CIDR]
+            MapPublicIpOnLaunch: false
+            Tags: 
+                - Key: Name 
+                  Value: !Sub ${EnvironmentName} Web (AZ2)
+
+################################################################  SecureSubnet1
+    SecureSubnet1: 
+        Type: AWS::EC2::Subnet
+        Properties:
+            VpcId: !Ref VPC
+            AvailabilityZone:
+              Fn::Sub:
+                - "${AWS::Region}${AZ}"
+                - AZ: !Select [ 0, !FindInMap [ "AZRegions", !Ref "AWS::Region", "AZs" ] ]
+            CidrBlock: !FindInMap [EnvironmentCIDR, !Ref EnvironmentType, SecureSubnet1CIDR]
+            MapPublicIpOnLaunch: false
+            Tags: 
+                - Key: Name 
+                  Value: !Sub ${EnvironmentName} Secure (AZ1)
+
+################################################################  SecureSubnet2
+    SecureSubnet2: 
+        Type: AWS::EC2::Subnet
+        Properties:
+            VpcId: !Ref VPC
+            AvailabilityZone:
+              Fn::Sub:
+                - "${AWS::Region}${AZ}"
+                - AZ: !Select [ 1, !FindInMap [ "AZRegions", !Ref "AWS::Region", "AZs" ] ]
+            CidrBlock: !FindInMap [EnvironmentCIDR, !Ref EnvironmentType, SecureSubnet2CIDR]
+            MapPublicIpOnLaunch: false
+            Tags: 
+                - Key: Name 
+                  Value: !Sub ${EnvironmentName} Secure (AZ2)
+
+################################################################  Route Tables
+################################################################  Public Routes
+    PublicRouteTable:
+        Type: AWS::EC2::RouteTable
+        Properties: 
+            VpcId: !Ref VPC
+            Tags: 
+                - Key: Name 
+                  Value: !Sub ${EnvironmentName} Public Routes
+
+    DefaultPublicRoute: 
+        Type: AWS::EC2::Route
+        DependsOn: InternetGatewayAttachment
+        Properties: 
+            RouteTableId: !Ref PublicRouteTable
+            DestinationCidrBlock: 0.0.0.0/0
+            GatewayId: !Ref InternetGateway
+
+    PublicSubnet1RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            RouteTableId: !Ref PublicRouteTable
+            SubnetId: !Ref PublicSubnet1
+
+    PublicSubnet2RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            RouteTableId: !Ref PublicRouteTable
+            SubnetId: !Ref PublicSubnet2
+
+################################################################  Nat01 Routes
+    InternalRouteTable1:
+        Type: AWS::EC2::RouteTable
+        Properties: 
+            VpcId: !Ref VPC
+            Tags: 
+                - Key: Name 
+                  Value: !Sub ${EnvironmentName} Nat01 Routes
+
+    DefaultInternalRoute1:
+        Type: AWS::EC2::Route
+        Properties:
+            RouteTableId: !Ref InternalRouteTable1
+            DestinationCidrBlock: 0.0.0.0/0
+            NatGatewayId: !Ref NatGateway1
+
+################################################################  Nat02 Routes
+    InternalRouteTable2:
+        Type: AWS::EC2::RouteTable
+        Properties: 
+            VpcId: !Ref VPC
+            Tags: 
+                - Key: Name 
+                  Value: !Sub ${EnvironmentName} Nat02 Routes
+
+    DefaultInternalRoute2:
+        Type: AWS::EC2::Route
+        Properties:
+            RouteTableId: !Ref InternalRouteTable2
+            DestinationCidrBlock: 0.0.0.0/0
+            NatGatewayId: !Ref NatGateway2
+            
+################################################################  Route Subnet Associations
+    InternalSubnet1RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            RouteTableId: !Ref InternalRouteTable1
+            SubnetId: !Ref InternalSubnet1
+
+
+    InternalSubnet2RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            RouteTableId: !Ref InternalRouteTable2
+            SubnetId: !Ref InternalSubnet2
+
+    WebSubnet1RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            RouteTableId: !Ref InternalRouteTable1
+            SubnetId: !Ref WebSubnet1
+
+    WebSubnet2RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            RouteTableId: !Ref InternalRouteTable2
+            SubnetId: !Ref WebSubnet2
+
+    SecureSubnet1RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            RouteTableId: !Ref InternalRouteTable1
+            SubnetId: !Ref SecureSubnet1
+
+    SecureSubnet2RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            RouteTableId: !Ref InternalRouteTable2
+            SubnetId: !Ref SecureSubnet2
+    
+Outputs:
+
+    EnvironmentName: 
+        Description: EnvironmentName
+        Value: !Ref EnvironmentName
+        Export:
+          Name: EnvironmentName
+
+    NetVPCID: 
+        Description: VPC ID
+        Value: !Ref VPC
+        Export:
+          Name: VpcId
+
+    NetPublicSubnet1ID:
+        Description: PublicSubnet1 ID 
+        Value: !Ref PublicSubnet1
+        Export:
+          Name: PublicSubnet1Id
+
+    NetPublicSubnet2ID: 
+        Description: PublicSubnet2 ID
+        Value: !Ref PublicSubnet2
+        Export:
+          Name: PublicSubnet2Id
+
+    NetInternalSubnet1ID:
+        Description: InternalSubnet1 ID
+        Value: !Ref InternalSubnet1
+        Export:
+          Name: InternalSubnet1Id
+
+    NetInternalSubnet2ID: 
+        Description: InternalSubnet2 ID
+        Value: !Ref InternalSubnet2
+        Export:
+          Name: InternalSubnet2Id
+
+    NetSecureSubnet1ID:
+        Description: SecureSubnet1 ID
+        Value: !Ref SecureSubnet1
+        Export:
+          Name: SecureSubnet1Id
+
+    NetSecureSubnet2ID: 
+        Description: SecureSubnet2 ID
+        Value: !Ref SecureSubnet2
+        Export:
+          Name: SecureSubnet2Id
+
+    CIDRVpc: 
+        Description: VPC CIDR
+        Value: !FindInMap [EnvironmentCIDR, !Ref EnvironmentType, VpcCIDR]
+        Export:
+          Name: VpcCIDR
+
+    CIDRInternalSubnet1: 
+        Description: Internal1 CIDR
+        Value: !FindInMap [EnvironmentCIDR, !Ref EnvironmentType, InternalSubnet1CIDR]
+        Export:
+          Name: InternalSubnet1CIDR
+
+    CIDRInternalSubnet2: 
+        Description: Internal2 CIDR
+        Value: !FindInMap [EnvironmentCIDR, !Ref EnvironmentType, InternalSubnet2CIDR]
+        Export:
+          Name: InternalSubnet2CIDR
+
